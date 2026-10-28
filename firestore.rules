@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+    // Admin SDK bypasses rules server-side; this helper covers client-side
+    // admin reads (admin signs in like anyone else, role is on their user doc).
+    function isAdmin() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Public reference data — anyone signed in can read; admin SDK writes.
+    match /tracks/{doc}        { allow read: if signedIn(); allow write: if false; }
+    match /assignments/{doc}   { allow read: if signedIn(); allow write: if false; }
+    match /resources/{doc}     { allow read: if signedIn(); allow write: if false; }
+    match /announcements/{doc} { allow read: if signedIn(); allow write: if false; }
+    match /events/{doc}        { allow read: if signedIn(); allow write: if false; }
+    match /courses/{doc}       { allow read: if signedIn(); allow write: if false; }
+    match /counters/{doc}      { allow read: if false;      allow write: if false; }
+
+    // Admin bootstrap: the hardcoded admin email can create their own
+    // user doc with role='admin' on first login. Change the string below
+    // (and NEXT_PUBLIC_ADMIN_EMAIL in .env.local) to match your admin email.
+    function isAdminEmail() {
+      return signedIn() &&
+        request.auth.token.email == 'sattva.tech.team@gmail.com';
+    }
+
+    // User profile. Admin lists all; interns read themselves.
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      // Admin SDK creates intern docs server-side (bypasses rules).
+      // Admin can bootstrap their own doc with role=admin on first login.
+      allow create: if isOwner(uid) && isAdminEmail() &&
+                       request.resource.data.role == 'admin';
+      // Interns can only update a narrow set of fields (session + light profile).
+      allow update: if (isOwner(uid) &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+                         ['activeSessionId', 'lastSignIn',
+                          'country', 'timezone', 'linkedin', 'github']
+                       )) || isAdmin();
+      allow delete: if false;
+
+      match /notes/{noteId}       { allow read, write: if isOwner(uid); }
+      match /onboarding/{itemId}  { allow read, write: if isOwner(uid); }
+      match /inbox/{msgId}        { allow read, write: if isOwner(uid); }
+      match /flags/{flagId}       { allow read, write: if isOwner(uid); }
+    }
+
+    // Submissions — intern writes their own, admins read all for grading.
+    match /submissions/{doc} {
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow read:   if signedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAdmin() ||
+                    (signedIn() && resource.data.userId == request.auth.uid &&
+                     request.resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // Questions.
+    match /questions/{doc} {
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow read:   if signedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAdmin() ||
+                    (signedIn() && resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // Feedback.
+    match /feedback/{doc} {
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow read:   if isAdmin();
+    }
+  }
+}

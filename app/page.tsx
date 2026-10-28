@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
 export default function Home() {
-  redirect("/intern");
+  // Auth-aware routing happens client-side on /login once a session is known.
+  redirect("/login");
 }
