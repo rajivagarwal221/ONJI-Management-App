@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   UserCog,
@@ -15,6 +18,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { OnjiWordmark } from "./Logo";
+import { useAuth } from "@/lib/auth";
 
 type NavItem = {
   href: string;
@@ -85,17 +89,26 @@ function NavLink({ item, active }: { item: NavItem; active?: boolean }) {
   );
 }
 
-export function Sidebar({ activePath = "/intern" }: { activePath?: string }) {
+export function Sidebar() {
+  const pathname = usePathname() || "/intern";
+  const { user, signOutUser } = useAuth();
+  const displayName = user?.displayName || "Rajiv Agarwal";
+  const email = user?.email || "arajiv221@gmail.com";
+  const initials = displayName
+    .split(" ")
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
   return (
     <aside className="relative hidden md:sticky md:top-0 md:flex md:h-dvh md:max-h-dvh md:flex-col overflow-hidden border-r border-white/10 bg-ink text-paper w-[268px]">
-      {/* decorative background */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-60" aria-hidden="true">
         <div className="absolute inset-0 bg-[#1C0F06]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_60%_40%,rgba(180,96,31,0.18),transparent_55%)]" />
         <div className="absolute inset-0 [background-image:linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] [background-size:48px_48px]" />
       </div>
 
-      {/* header */}
       <div className="relative flex h-16 items-center justify-between gap-2.5 border-b border-white/10 px-5">
         <Link href="/" className="flex min-w-0 items-center gap-2.5 no-underline">
           <OnjiWordmark />
@@ -105,7 +118,6 @@ export function Sidebar({ activePath = "/intern" }: { activePath?: string }) {
         </Link>
       </div>
 
-      {/* nav */}
       <nav className="relative min-h-0 flex-1 overflow-y-auto px-3 py-4">
         {sections.map((section, i) => (
           <div key={section.title} className={i === 0 ? "" : "mt-1"}>
@@ -114,28 +126,34 @@ export function Sidebar({ activePath = "/intern" }: { activePath?: string }) {
             </div>
             <div className="space-y-0.5">
               {section.items.map((item) => (
-                <NavLink key={item.href} item={item} active={item.href === activePath} />
+                <NavLink
+                  key={item.href}
+                  item={item}
+                  active={
+                    item.href === pathname ||
+                    (item.href !== "/intern" && pathname.startsWith(item.href + "/"))
+                  }
+                />
               ))}
             </div>
           </div>
         ))}
       </nav>
 
-      {/* account */}
       <div className="relative shrink-0 border-t border-white/10 bg-white/[0.035] p-3">
         <details className="group">
           <summary className="flex cursor-pointer list-none items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 p-2.5 shadow-sm transition-colors hover:border-white/20 hover:bg-white/10 [&::-webkit-details-marker]:hidden">
             <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-paper-soft text-xs font-semibold text-ink shadow-sm">
-              RA
+              {initials}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
-                <span className="truncate text-sm font-medium text-paper">Rajiv Agarwal</span>
+                <span className="truncate text-sm font-medium text-paper">{displayName}</span>
                 <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-paper/60">
                   Intern
                 </span>
               </div>
-              <div className="truncate text-xs text-paper/50">arajiv221@gmail.com</div>
+              <div className="truncate text-xs text-paper/50">{email}</div>
             </div>
             <ChevronDown className="h-4 w-4 shrink-0 text-paper/55 transition-transform group-open:rotate-180" />
           </summary>
@@ -146,14 +164,13 @@ export function Sidebar({ activePath = "/intern" }: { activePath?: string }) {
             >
               <MessageSquarePlus className="h-4 w-4" /> Feedback
             </Link>
-            <form action="/auth/sign-out" method="post">
-              <button
-                type="submit"
-                className="flex h-10 w-full items-center gap-2.5 rounded-xl px-3 text-sm text-paper/70 hover:bg-white/[0.07] hover:text-paper"
-              >
-                <LogOut className="h-4 w-4" /> Sign out
-              </button>
-            </form>
+            <button
+              type="button"
+              onClick={() => void signOutUser().catch(() => {})}
+              className="flex h-10 w-full items-center gap-2.5 rounded-xl px-3 text-sm text-paper/70 hover:bg-white/[0.07] hover:text-paper"
+            >
+              <LogOut className="h-4 w-4" /> Sign out
+            </button>
           </div>
         </details>
       </div>
