@@ -1,38 +1,89 @@
-import { Card, Chip, PageHeader } from "@/components/ui";
+"use client";
 
-const weeks = [
-  { week: 1, label: "Week 1 · Current", theme: "Foundations", assignments: 5 },
-  { week: 2, label: "Week 2", theme: "Data & evaluation", assignments: 5 },
-  { week: 3, label: "Week 3", theme: "Modeling", assignments: 5 },
-  { week: 4, label: "Week 4", theme: "Deployment", assignments: 5 },
-  { week: 5, label: "Week 5", theme: "Iteration", assignments: 5 },
-  { week: 6, label: "Week 6", theme: "Capstone", assignments: 1 },
-];
+import { useEffect, useState } from "react";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { CalendarDays } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { firebaseDb } from "@/lib/firebase";
+import { Banner, Card, Chip, Empty, LoadingPanel, PageHeader } from "@/components/ui";
+
+type Assignment = {
+  id: string;
+  title: string;
+  track: string;
+  week: number;
+};
 
 export default function SchedulePage() {
+  const { profile } = useAuth();
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const primary = (profile as unknown as { primaryTrack?: string } | null)?.primaryTrack || "ml";
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const snap = await getDocs(
+          query(collection(firebaseDb(), "assignments"), where("track", "==", primary)),
+        );
+        setAssignments(
+          snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Assignment, "id">) })),
+        );
+      } catch (ex) {
+        setErr(ex instanceof Error ? ex.message : "Failed to load");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [primary]);
+
+  const byWeek = assignments.reduce<Record<number, Assignment[]>>((acc, a) => {
+    (acc[a.week] ||= []).push(a);
+    return acc;
+  }, {});
+  const weeks = Object.keys(byWeek).map(Number).sort((a, b) => a - b);
+
   return (
     <div className="space-y-6">
       <PageHeader
+        icon={CalendarDays}
         eyebrow="Schedule"
         title="Program schedule"
-        description="A rough path through your primary track. Everything is self-paced — this is suggested cadence."
+        description="Suggested week-by-week plan for your primary track. Everything is self-paced."
       />
+      {err && <Banner tone="error">{err}</Banner>}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {weeks.map((w) => (
-          <Card key={w.week}>
-            <div className="flex items-center justify-between">
-              <h2 className="font-display text-lg font-semibold text-ink">{w.label}</h2>
-              {w.week === 1 && <Chip tone="brand">Now</Chip>}
-            </div>
-            <p className="mt-1 text-sm text-ink-mute">{w.theme}</p>
-            <p className="mt-4 text-sm text-ink-mute">
-              <span className="font-medium text-ink">{w.assignments}</span> assignments ·{" "}
-              Suggested effort 6–8h
-            </p>
-          </Card>
-        ))}
-      </div>
+      {loading ? (
+        <LoadingPanel />
+      ) : weeks.length === 0 ? (
+        <Empty
+          icon={CalendarDays}
+          title="No schedule yet"
+          description="Ask admin to seed starter content."
+        />
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {weeks.map((w) => (
+            <Card key={w}>
+              <div className="flex items-center justify-between">
+                <h2 className="font-display text-lg font-semibold text-ink">Week {w}</h2>
+                {w === 1 && <Chip tone="brand">Now</Chip>}
+              </div>
+              <ul className="mt-3 space-y-2 text-sm">
+                {byWeek[w].map((a) => (
+                  <li
+                    key={a.id}
+                    className="rounded-lg border border-line bg-paper-soft px-3 py-2 text-ink"
+                  >
+                    {a.title}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

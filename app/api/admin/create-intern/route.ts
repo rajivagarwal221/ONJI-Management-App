@@ -67,6 +67,50 @@ export async function POST(req: NextRequest) {
         lastSignIn: null,
       });
 
+    // Mint a per-user onboarding checklist from the template.
+    try {
+      const templateSnap = await adminDb()
+        .collection("meta")
+        .doc("onboarding")
+        .get();
+      const items =
+        (templateSnap.exists ? (templateSnap.data()?.items as string[]) : null) ||
+        [
+          "Verify your email",
+          "Fill out your profile",
+          "Pick your primary track",
+          "Watch the portal overview video",
+          "Submit intro assignment",
+        ];
+      const onboardingBatch = adminDb().batch();
+      items.forEach((title, i) => {
+        const ref = adminDb()
+          .collection("users")
+          .doc(user.uid)
+          .collection("onboarding")
+          .doc();
+        onboardingBatch.set(ref, { title, order: i, done: false });
+      });
+      // Also drop a welcome message into their inbox.
+      onboardingBatch.set(
+        adminDb()
+          .collection("users")
+          .doc(user.uid)
+          .collection("inbox")
+          .doc(),
+        {
+          from: "ONJI Program",
+          subject: `Welcome to the ${cohort} cohort`,
+          body: "Your account is ready. Finish the Getting Started guide on your dashboard, then jump into Week 1 of your track.",
+          unread: true,
+          receivedAt: FieldValue.serverTimestamp(),
+        },
+      );
+      await onboardingBatch.commit();
+    } catch {
+      // onboarding mint failure shouldn't block provisioning
+    }
+
     const loginUrl =
       process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") + "/login" ||
       "https://your-domain.example/login";

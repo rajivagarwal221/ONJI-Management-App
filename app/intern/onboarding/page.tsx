@@ -1,61 +1,109 @@
-import { CheckCircle2 } from "lucide-react";
-import { Button, Card, Chip, PageHeader } from "@/components/ui";
+"use client";
 
-const items = [
-  { id: 1, title: "Create your account", done: true },
-  { id: 2, title: "Verify your email", done: true },
-  { id: 3, title: "Fill out your profile", done: true },
-  { id: 4, title: "Pick your primary track", done: true },
-  { id: 5, title: "Join the cohort Slack", done: true },
-  { id: 6, title: "Add ONJI to your LinkedIn", done: true },
-  { id: 7, title: "Watch the portal overview video", done: true },
-  { id: 8, title: "Read the handbook", done: true },
-  { id: 9, title: "Sign the code of conduct", done: true },
-  { id: 10, title: "Submit intro assignment", done: true },
-  { id: 11, title: "Install the ONJI CLI", done: true },
-  { id: 12, title: "Set your working hours", done: true },
-  { id: 13, title: "Pair with an onboarding buddy", done: true },
-  { id: 14, title: "Attend kickoff event (recording OK)", done: true },
-  { id: 15, title: "Mark onboarding complete", done: true },
-];
+import { useEffect, useState } from "react";
+import {
+  collection,
+  getDocs,
+  orderBy,
+  query,
+  updateDoc,
+  doc,
+} from "firebase/firestore";
+import { CheckCircle2, Circle, ListChecks } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { firebaseDb } from "@/lib/firebase";
+import { Banner, Card, Chip, Empty, LoadingPanel, PageHeader } from "@/components/ui";
+
+type Item = { id: string; title: string; order: number; done: boolean };
 
 export default function OnboardingPage() {
+  const { user } = useAuth();
+  const [items, setItems] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const snap = await getDocs(
+          query(
+            collection(firebaseDb(), "users", user.uid, "onboarding"),
+            orderBy("order"),
+          ),
+        );
+        setItems(
+          snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Item, "id">) })),
+        );
+      } catch (ex) {
+        setErr(ex instanceof Error ? ex.message : "Failed to load");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [user]);
+
+  async function toggle(id: string, done: boolean) {
+    if (!user) return;
+    try {
+      await updateDoc(
+        doc(firebaseDb(), "users", user.uid, "onboarding", id),
+        { done },
+      );
+      setItems((prev) => prev.map((i) => (i.id === id ? { ...i, done } : i)));
+    } catch (ex) {
+      setErr(ex instanceof Error ? ex.message : "Update failed");
+    }
+  }
+
   const done = items.filter((i) => i.done).length;
+
   return (
     <div className="space-y-6">
       <PageHeader
+        icon={ListChecks}
         eyebrow="Onboarding"
         title="Your onboarding checklist"
-        description="15 steps to get you set up. Keep working through tracks even while finishing these."
-        action={<Chip tone="brand">{done}/15 complete</Chip>}
+        description="Finish these so your dashboard moves on to real work."
+        action={
+          items.length > 0 && <Chip tone="brand">{done}/{items.length} complete</Chip>
+        }
       />
-      <Card>
-        <ol className="divide-y divide-line">
-          {items.map((item) => (
-            <li key={item.id} className="flex items-center gap-3 py-3">
-              <CheckCircle2
-                className={`h-5 w-5 shrink-0 ${
-                  item.done ? "text-brand" : "text-ink-mute/40"
-                }`}
-              />
-              <span
-                className={`flex-1 text-sm ${
-                  item.done ? "text-ink" : "text-ink-mute"
-                }`}
-              >
-                {item.title}
-              </span>
-              {item.done ? (
-                <Chip tone="brand">Done</Chip>
-              ) : (
-                <Button size="sm" variant="secondary">
-                  Mark done
-                </Button>
-              )}
-            </li>
-          ))}
-        </ol>
-      </Card>
+      {err && <Banner tone="error">{err}</Banner>}
+      {loading ? (
+        <LoadingPanel />
+      ) : items.length === 0 ? (
+        <Empty
+          icon={ListChecks}
+          title="No onboarding items yet"
+          description="Your admin needs to seed starter data. Ask them to click 'Seed / refresh starter content' in the admin console."
+        />
+      ) : (
+        <Card>
+          <ol className="divide-y divide-line">
+            {items.map((item) => (
+              <li key={item.id} className="flex items-center gap-3 py-3">
+                <button
+                  type="button"
+                  onClick={() => toggle(item.id, !item.done)}
+                  className="shrink-0 rounded-full p-0.5 transition hover:bg-paper-soft"
+                  aria-label={item.done ? "Mark incomplete" : "Mark complete"}
+                >
+                  {item.done ? (
+                    <CheckCircle2 className="h-5 w-5 text-brand" />
+                  ) : (
+                    <Circle className="h-5 w-5 text-ink-mute/40" />
+                  )}
+                </button>
+                <span className={`flex-1 text-sm ${item.done ? "text-ink line-through" : "text-ink"}`}>
+                  {item.title}
+                </span>
+                {item.done && <Chip tone="success">Done</Chip>}
+              </li>
+            ))}
+          </ol>
+        </Card>
+      )}
     </div>
   );
 }
