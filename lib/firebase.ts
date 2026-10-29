@@ -1,12 +1,14 @@
-// Firebase client SDK init. Fill the env vars in .env.local before using.
-// NEXT_PUBLIC_FIREBASE_API_KEY, _AUTH_DOMAIN, _PROJECT_ID, _STORAGE_BUCKET,
-// _MESSAGING_SENDER_ID, _APP_ID
+// Firebase client SDK init.
 //
-// NOTE: Firebase 13's modular SDK registers components (auth/firestore/storage)
-// as a side-effect of their imports. If initializeApp() is called lazily
-// AFTER those modules are only transitively referenced, bundlers sometimes
-// split them into separate chunks and the components aren't registered when
-// getAuth() runs. So we initialize at module load.
+// Firebase v9+ modular SDK registers each product's component (auth,
+// firestore, storage) as a side effect of importing its subpackage.
+// If a bundler splits the subpackage into a later chunk, getAuth() can
+// run before the side effects have — hence "Component auth has not been
+// registered yet". Forcing explicit side-effect imports + initializing
+// at module load fixes it under Turbopack / Next 16.
+import "firebase/auth";
+import "firebase/firestore";
+import "firebase/storage";
 import {
   getApp,
   getApps,
@@ -27,7 +29,7 @@ const config: FirebaseOptions = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-function getOrInit(): FirebaseApp {
+function requireClient(): FirebaseApp {
   if (!config.projectId) {
     throw new Error(
       "Firebase env vars missing. Set NEXT_PUBLIC_FIREBASE_* in .env.local",
@@ -36,20 +38,29 @@ function getOrInit(): FirebaseApp {
   return getApps().length ? getApp() : initializeApp(config);
 }
 
-// Eagerly initialize when the module loads on the client so that the
-// auth/firestore/storage side-effect imports above have already registered
-// their components by the time anyone calls firebaseAuth().
+// Initialize at module load so component side-effects complete before any
+// getAuth / getFirestore / getStorage call. On the server (no window) this
+// stays null; API routes use firebase-admin instead.
 const app: FirebaseApp | null =
-  typeof window !== "undefined" ? getOrInit() : null;
+  typeof window !== "undefined" ? requireClient() : null;
+
+// Eagerly bind the SDK instances on the client so the auth component is
+// registered immediately — not later, when a React effect finally fires.
+const authInstance: Auth | null = app ? getAuth(app) : null;
+const dbInstance: Firestore | null = app ? getFirestore(app) : null;
+const storageInstance: FirebaseStorage | null = app ? getStorage(app) : null;
 
 export function firebaseAuth(): Auth {
-  return getAuth(app ?? getOrInit());
+  if (authInstance) return authInstance;
+  return getAuth(requireClient());
 }
 
 export function firebaseDb(): Firestore {
-  return getFirestore(app ?? getOrInit());
+  if (dbInstance) return dbInstance;
+  return getFirestore(requireClient());
 }
 
 export function firebaseStorage(): FirebaseStorage {
-  return getStorage(app ?? getOrInit());
+  if (storageInstance) return storageInstance;
+  return getStorage(requireClient());
 }
