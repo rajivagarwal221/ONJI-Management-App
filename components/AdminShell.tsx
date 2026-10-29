@@ -8,7 +8,7 @@ import { OnjiWordmark } from "./Logo";
 import { useAuth } from "@/lib/auth";
 
 const ADMIN_EMAIL = (
-  process.env.NEXT_PUBLIC_ADMIN_EMAIL || "sattva.tech.team@gmail.com"
+  process.env.NEXT_PUBLIC_ADMIN_EMAIL || "onjisoftware@gmail.com"
 ).toLowerCase();
 
 const nav = [

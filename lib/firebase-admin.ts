@@ -48,7 +48,7 @@ export function adminDb(): Firestore {
 }
 
 export const ADMIN_EMAIL =
-  process.env.ADMIN_EMAIL || "sattva.tech.team@gmail.com";
+  process.env.ADMIN_EMAIL || "onjisoftware@gmail.com";
 
 export async function requireAdmin(idToken: string | undefined) {
   if (!idToken) throw new Error("Missing auth token.");
