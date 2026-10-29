@@ -23,14 +23,25 @@ export function admin(): App {
 
   const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(
-    /\\n/g,
-    "\n",
-  );
+  // The private key env var is historically painful: locally .env.local
+  // needs quotes + literal \n escapes; on Vercel you paste the raw PEM
+  // with real newlines; and some paste flows wrap the whole thing in
+  // double or single quotes. Normalize all of these to a valid PEM.
+  let privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
+  if (privateKey) {
+    privateKey = privateKey.trim();
+    if (
+      (privateKey.startsWith('"') && privateKey.endsWith('"')) ||
+      (privateKey.startsWith("'") && privateKey.endsWith("'"))
+    ) {
+      privateKey = privateKey.slice(1, -1);
+    }
+    privateKey = privateKey.replace(/\\n/g, "\n");
+  }
 
   if (!projectId || !clientEmail || !privateKey) {
     throw new Error(
-      "Firebase Admin env vars missing. Set FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, FIREBASE_ADMIN_PRIVATE_KEY in .env.local.",
+      "Firebase Admin env vars missing. Set FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, FIREBASE_ADMIN_PRIVATE_KEY in your environment.",
     );
   }
 
