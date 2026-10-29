@@ -48,10 +48,11 @@ service cloud.firestore {
                        )) || isAdmin();
       allow delete: if false;
 
-      match /notes/{noteId}       { allow read, write: if isOwner(uid); }
-      match /onboarding/{itemId}  { allow read, write: if isOwner(uid); }
-      match /inbox/{msgId}        { allow read, write: if isOwner(uid); }
-      match /flags/{flagId}       { allow read, write: if isOwner(uid); }
+      match /notes/{noteId}            { allow read, write: if isOwner(uid); }
+      match /onboarding/{itemId}       { allow read, write: if isOwner(uid); }
+      match /inbox/{msgId}             { allow read, write: if isOwner(uid); }
+      match /flags/{flagId}            { allow read, write: if isOwner(uid); }
+      match /completedCourses/{cid}    { allow read, write: if isOwner(uid); }
     }
 
     // Submissions — intern writes their own, admins read all for grading.

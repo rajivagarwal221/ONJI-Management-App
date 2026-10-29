@@ -12,11 +12,22 @@ export async function POST(req: NextRequest) {
     await requireAdmin(idToken);
 
     const body = await req.json();
-    const { email, displayName, primaryTrack, cohort } = body as {
+    const {
+      email,
+      displayName,
+      primaryTrack,
+      cohort,
+      institute,
+      startDate,
+      durationMonths,
+    } = body as {
       email: string;
       displayName: string;
       primaryTrack: string;
       cohort: string;
+      institute?: string;
+      startDate?: string;
+      durationMonths?: number;
     };
 
     if (!email || !displayName || !primaryTrack || !cohort) {
@@ -50,6 +61,15 @@ export async function POST(req: NextRequest) {
       disabled: false,
     });
 
+    // Compute end date from start + duration (defaults: today + 4 months).
+    const start = startDate || new Date().toISOString().slice(0, 10);
+    const months = Number.isFinite(durationMonths) && durationMonths! > 0
+      ? Math.floor(durationMonths!)
+      : 4;
+    const endDateObj = new Date(start);
+    endDateObj.setMonth(endDateObj.getMonth() + months);
+    const endDate = endDateObj.toISOString().slice(0, 10);
+
     await adminDb()
       .collection("users")
       .doc(user.uid)
@@ -62,6 +82,12 @@ export async function POST(req: NextRequest) {
         tracks: [primaryTrack],
         cohort,
         referenceNo,
+        institute: institute || "",
+        startDate: start,
+        endDate,
+        durationMonths: months,
+        completed: false,
+        completedAt: null,
         provisionedAt: FieldValue.serverTimestamp(),
         activeSessionId: null,
         lastSignIn: null,

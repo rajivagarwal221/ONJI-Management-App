@@ -2,6 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import {
+  collection,
+  onSnapshot,
+  query,
+  where,
+} from "firebase/firestore";
 import {
   LayoutDashboard,
   UserCog,
@@ -16,9 +23,11 @@ import {
   MessageSquarePlus,
   LogOut,
   ChevronDown,
+  FileText,
 } from "lucide-react";
 import { OnjiWordmark } from "./Logo";
 import { useAuth } from "@/lib/auth";
+import { firebaseDb } from "@/lib/firebase";
 
 type NavItem = {
   href: string;
@@ -29,44 +38,17 @@ type NavItem = {
 
 type NavSection = { title: string; items: NavItem[] };
 
-const sections: NavSection[] = [
-  {
-    title: "Start",
-    items: [
-      { href: "/intern", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/intern/profile", label: "Profile", icon: UserCog, badge: "100%" },
-      { href: "/intern/onboarding", label: "Onboarding", icon: ListChecks, badge: "100%" },
-      { href: "/intern/courses", label: "Anthropic Certs", icon: GraduationCap, badge: "0%" },
-    ],
-  },
-  {
-    title: "Program",
-    items: [
-      { href: "/intern/tracks", label: "Tracks", icon: BookOpen },
-      { href: "/intern/assignments", label: "Assignments", icon: ClipboardCheck },
-      { href: "/intern/schedule", label: "Schedule", icon: CalendarDays },
-      { href: "/intern/events", label: "Events", icon: CalendarDays },
-      { href: "/intern/completion", label: "Completion", icon: GraduationCap },
-      { href: "/intern/resources", label: "Resources", icon: BookOpen },
-      { href: "/intern/notes", label: "Study notes", icon: NotebookPen },
-      { href: "/intern/free-tier", label: "Free Tier", icon: BookOpen },
-    ],
-  },
-  {
-    title: "Connect",
-    items: [
-      { href: "/intern/announcements", label: "Announcements", icon: Bell, badge: "36" },
-      { href: "/intern/inbox", label: "E-Mail Inbox", icon: Mail, badge: "1" },
-    ],
-  },
-  {
-    title: "Records",
-    items: [
-      { href: "/intern/submissions", label: "Submissions", icon: ClipboardCheck },
-      { href: "/intern/questions", label: "Questions", icon: MessageSquarePlus },
-    ],
-  },
-];
+// Fields counted toward "profile completeness".
+const PROFILE_FIELDS = ["country", "timezone", "linkedin", "github"] as const;
+
+function profilePct(profile: Record<string, unknown> | null): number {
+  if (!profile) return 0;
+  const filled = PROFILE_FIELDS.filter((k) => {
+    const v = profile[k];
+    return typeof v === "string" && v.trim().length > 0;
+  }).length;
+  return Math.round((filled / PROFILE_FIELDS.length) * 100);
+}
 
 function NavLink({ item, active }: { item: NavItem; active?: boolean }) {
   const Icon = item.icon;
@@ -91,9 +73,171 @@ function NavLink({ item, active }: { item: NavItem; active?: boolean }) {
 
 export function Sidebar() {
   const pathname = usePathname() || "/intern";
-  const { user, signOutUser } = useAuth();
-  const displayName = user?.displayName || "Rajiv Agarwal";
-  const email = user?.email || "arajiv221@gmail.com";
+  const { user, profile, signOutUser } = useAuth();
+
+  const [onbPct, setOnbPct] = useState<number | null>(null);
+  const [coursesPct, setCoursesPct] = useState<number | null>(null);
+  const [announcementsCount, setAnnouncementsCount] = useState<number | null>(null);
+  const [unreadCount, setUnreadCount] = useState<number | null>(null);
+
+  const uid = user?.uid;
+
+  // Onboarding %
+  useEffect(() => {
+    if (!uid) return;
+    const unsub = onSnapshot(
+      collection(firebaseDb(), "users", uid, "onboarding"),
+      (snap) => {
+        const total = snap.size;
+        if (total === 0) {
+          setOnbPct(null);
+          return;
+        }
+        const done = snap.docs.filter(
+          (d) => (d.data() as { done?: boolean }).done,
+        ).length;
+        setOnbPct(Math.round((done / total) * 100));
+      },
+      () => setOnbPct(null),
+    );
+    return () => unsub();
+  }, [uid]);
+
+  // Courses % — compare /courses total vs user's /completedCourses
+  useEffect(() => {
+    if (!uid) return;
+    let totalCourses = 0;
+    let completed = 0;
+
+    const unsubTotal = onSnapshot(
+      collection(firebaseDb(), "courses"),
+      (snap) => {
+        totalCourses = snap.size;
+        update();
+      },
+      () => setCoursesPct(null),
+    );
+    const unsubDone = onSnapshot(
+      collection(firebaseDb(), "users", uid, "completedCourses"),
+      (snap) => {
+        completed = snap.size;
+        update();
+      },
+      () => setCoursesPct(null),
+    );
+
+    function update() {
+      if (totalCourses === 0) {
+        setCoursesPct(null);
+        return;
+      }
+      setCoursesPct(Math.round((completed / totalCourses) * 100));
+    }
+
+    return () => {
+      unsubTotal();
+      unsubDone();
+    };
+  }, [uid]);
+
+  // Announcements count
+  useEffect(() => {
+    if (!uid) return;
+    const unsub = onSnapshot(
+      collection(firebaseDb(), "announcements"),
+      (snap) => setAnnouncementsCount(snap.size),
+      () => setAnnouncementsCount(null),
+    );
+    return () => unsub();
+  }, [uid]);
+
+  // Unread inbox count
+  useEffect(() => {
+    if (!uid) return;
+    const unsub = onSnapshot(
+      query(
+        collection(firebaseDb(), "users", uid, "inbox"),
+        where("unread", "==", true),
+      ),
+      (snap) => setUnreadCount(snap.size),
+      () => setUnreadCount(null),
+    );
+    return () => unsub();
+  }, [uid]);
+
+  const pPct = profilePct(profile as unknown as Record<string, unknown> | null);
+
+  const sections: NavSection[] = [
+    {
+      title: "Start",
+      items: [
+        { href: "/intern", label: "Dashboard", icon: LayoutDashboard },
+        {
+          href: "/intern/profile",
+          label: "Profile",
+          icon: UserCog,
+          badge: `${pPct}%`,
+        },
+        {
+          href: "/intern/onboarding",
+          label: "Onboarding",
+          icon: ListChecks,
+          badge: onbPct == null ? undefined : `${onbPct}%`,
+        },
+        {
+          href: "/intern/courses",
+          label: "Anthropic Certs",
+          icon: GraduationCap,
+          badge: coursesPct == null ? undefined : `${coursesPct}%`,
+        },
+      ],
+    },
+    {
+      title: "Program",
+      items: [
+        { href: "/intern/tracks", label: "Tracks", icon: BookOpen },
+        { href: "/intern/assignments", label: "Assignments", icon: ClipboardCheck },
+        { href: "/intern/schedule", label: "Schedule", icon: CalendarDays },
+        { href: "/intern/events", label: "Events", icon: CalendarDays },
+        { href: "/intern/completion", label: "Completion", icon: GraduationCap },
+        { href: "/intern/resources", label: "Resources", icon: BookOpen },
+        { href: "/intern/notes", label: "Study notes", icon: NotebookPen },
+        { href: "/intern/free-tier", label: "Free Tier", icon: BookOpen },
+      ],
+    },
+    {
+      title: "Connect",
+      items: [
+        {
+          href: "/intern/announcements",
+          label: "Announcements",
+          icon: Bell,
+          badge: announcementsCount ? String(announcementsCount) : undefined,
+        },
+        {
+          href: "/intern/inbox",
+          label: "E-Mail Inbox",
+          icon: Mail,
+          badge: unreadCount ? String(unreadCount) : undefined,
+        },
+      ],
+    },
+    {
+      title: "Records",
+      items: [
+        { href: "/intern/submissions", label: "Submissions", icon: ClipboardCheck },
+        { href: "/intern/questions", label: "Questions", icon: MessageSquarePlus },
+        { href: "/intern/documents", label: "Documents", icon: FileText },
+      ],
+    },
+  ];
+
+  const displayName =
+    (profile as unknown as { displayName?: string } | null)?.displayName ||
+    user?.displayName ||
+    user?.email?.split("@")[0] ||
+    "Intern";
+  const email = user?.email || "";
   const initials = displayName
     .split(" ")
     .map((p) => p[0])

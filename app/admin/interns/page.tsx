@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import {
   collection,
   getDocs,
+  onSnapshot,
   orderBy,
   query,
   where,
@@ -12,7 +13,7 @@ import {
 import { firebaseDb } from "@/lib/firebase";
 import { firebaseAuth } from "@/lib/firebase";
 import { Card, Chip, PageHeader } from "@/components/ui";
-import { KeyRound, Power } from "lucide-react";
+import { Award, FileText, KeyRound, Power, CheckCircle2, RotateCcw, Star, StarOff } from "lucide-react";
 
 type Intern = {
   uid: string;
@@ -23,6 +24,8 @@ type Intern = {
   cohort?: string;
   disabled?: boolean;
   activeSessionId?: string | null;
+  completed?: boolean;
+  lorIssued?: boolean;
 };
 
 export default function InternsListPage() {
@@ -31,35 +34,35 @@ export default function InternsListPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+  // Keep around for compatibility with existing busy flows that await load().
   async function load() {
     try {
       const snap = await getDocs(
-        query(
-          collection(firebaseDb(), "users"),
-          where("role", "==", "intern"),
-          orderBy("referenceNo"),
-        ),
+        query(collection(firebaseDb(), "users"), where("role", "==", "intern")),
       );
       setInterns(
         snap.docs.map((d) => ({ uid: d.id, ...(d.data() as Omit<Intern, "uid">) })),
       );
     } catch {
-      // Index building or no interns yet
-      try {
-        const snap = await getDocs(
-          query(collection(firebaseDb(), "users"), where("role", "==", "intern")),
-        );
-        setInterns(
-          snap.docs.map((d) => ({ uid: d.id, ...(d.data() as Omit<Intern, "uid">) })),
-        );
-      } catch {
-        setInterns([]);
-      }
+      setInterns([]);
     }
   }
 
   useEffect(() => {
-    void load();
+    const unsub = onSnapshot(
+      query(collection(firebaseDb(), "users"), where("role", "==", "intern")),
+      (snap) => {
+        const rows = snap.docs.map((d) => ({
+          uid: d.id,
+          ...(d.data() as Omit<Intern, "uid">),
+        }));
+        // Sort by referenceNo client-side so no composite index needed.
+        rows.sort((a, b) => (a.referenceNo || "").localeCompare(b.referenceNo || ""));
+        setInterns(rows);
+      },
+      () => setInterns([]),
+    );
+    return () => unsub();
   }, []);
 
   async function tokenHeader(): Promise<HeadersInit> {
@@ -88,6 +91,76 @@ export default function InternsListPage() {
         data.emailStatus === "sent"
           ? "New password emailed."
           : `Password reset, but email failed: ${data.emailError}. New password: ${data.password}`,
+      );
+      await load();
+    } catch (ex) {
+      setErr(ex instanceof Error ? ex.message : "Failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function toggleCompleted(uid: string, completed: boolean, name: string) {
+    if (
+      !confirm(
+        completed
+          ? `Mark ${name} as completed? Their certificate will be released and they will be notified.`
+          : `Re-open ${name}'s internship? Their certificate will be hidden again.`,
+      )
+    )
+      return;
+    setBusy(uid);
+    setMsg(null);
+    setErr(null);
+    try {
+      const res = await fetch("/api/admin/complete-intern", {
+        method: "POST",
+        headers: await tokenHeader(),
+        body: JSON.stringify({ uid, completed }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+      setMsg(
+        completed
+          ? `${name} marked as completed — certificate released.`
+          : `${name}'s completion was reverted.`,
+      );
+      await load();
+    } catch (ex) {
+      setErr(ex instanceof Error ? ex.message : "Failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function toggleLor(uid: string, issued: boolean, name: string, completed?: boolean) {
+    if (issued && !completed) {
+      alert("Mark the intern as completed first — the LOR follows completion.");
+      return;
+    }
+    if (
+      !confirm(
+        issued
+          ? `Issue a Letter of Recommendation for ${name}?`
+          : `Revoke ${name}'s Letter of Recommendation?`,
+      )
+    )
+      return;
+    setBusy(uid);
+    setMsg(null);
+    setErr(null);
+    try {
+      const res = await fetch("/api/admin/toggle-lor", {
+        method: "POST",
+        headers: await tokenHeader(),
+        body: JSON.stringify({ uid, issued }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+      setMsg(
+        issued
+          ? `LOR issued for ${name}.`
+          : `LOR revoked for ${name}.`,
       );
       await load();
     } catch (ex) {
@@ -150,7 +223,7 @@ export default function InternsListPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-[140px_1fr_1fr_120px_120px_120px_140px] items-center gap-3 border-b border-line bg-paper-soft px-5 py-3 text-xs uppercase tracking-wide text-ink-mute">
+            <div className="grid grid-cols-[130px_1fr_1fr_110px_110px_130px_320px] items-center gap-3 border-b border-line bg-paper-soft px-5 py-3 text-xs uppercase tracking-wide text-ink-mute">
               <span>Ref No.</span>
               <span>Name</span>
               <span>Email</span>
@@ -163,7 +236,7 @@ export default function InternsListPage() {
               {interns.map((i) => (
                 <li
                   key={i.uid}
-                  className="grid grid-cols-[140px_1fr_1fr_120px_120px_120px_140px] items-center gap-3 px-5 py-3 text-sm"
+                  className="grid grid-cols-[130px_1fr_1fr_110px_110px_130px_320px] items-center gap-3 px-5 py-3 text-sm"
                 >
                   <span className="font-mono text-xs text-ink-mute">
                     {i.referenceNo || "—"}
@@ -172,16 +245,104 @@ export default function InternsListPage() {
                   <span className="truncate text-ink-mute">{i.email}</span>
                   <span className="text-ink-mute">{i.primaryTrack || "—"}</span>
                   <span className="text-ink-mute">{i.cohort || "—"}</span>
-                  <span>
-                    {i.disabled ? (
+                  <span className="flex flex-wrap gap-1">
+                    {i.lorIssued ? (
+                      <Chip tone="brand">LOR</Chip>
+                    ) : i.completed ? (
+                      <Chip tone="brand">Completed</Chip>
+                    ) : i.disabled ? (
                       <Chip tone="warn">Disabled</Chip>
                     ) : i.activeSessionId ? (
                       <Chip tone="success">Signed in</Chip>
                     ) : (
-                      <Chip>Idle</Chip>
+                      <Chip>Active</Chip>
                     )}
                   </span>
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <Link
+                      href={`/documents/offer-letter/${i.uid}`}
+                      target="_blank"
+                      title="Download offer letter"
+                      className="grid h-8 w-8 place-items-center rounded-lg border border-line bg-white hover:border-ink/40"
+                    >
+                      <FileText className="h-4 w-4 text-ink-mute" />
+                    </Link>
+                    {i.completed ? (
+                      <Link
+                        href={`/documents/certificate/${i.uid}`}
+                        target="_blank"
+                        title="Download completion certificate"
+                        className="grid h-8 w-8 place-items-center rounded-lg border border-emerald-300 bg-emerald-50 hover:border-emerald-500"
+                      >
+                        <Award className="h-4 w-4 text-emerald-700" />
+                      </Link>
+                    ) : (
+                      <span
+                        title="Certificate releases when you mark the intern complete"
+                        className="grid h-8 w-8 place-items-center rounded-lg border border-dashed border-line bg-paper-soft text-ink-mute/60"
+                      >
+                        <Award className="h-4 w-4" />
+                      </span>
+                    )}
+                    {i.lorIssued ? (
+                      <Link
+                        href={`/documents/lor/${i.uid}`}
+                        target="_blank"
+                        title="Download LOR"
+                        className="grid h-8 w-8 place-items-center rounded-lg border border-amber-300 bg-amber-50 hover:border-amber-500"
+                      >
+                        <FileText className="h-4 w-4 text-amber-700" />
+                      </Link>
+                    ) : (
+                      <span
+                        title={
+                          i.completed
+                            ? "LOR not issued yet — use the star button"
+                            : "Mark intern complete first"
+                        }
+                        className="grid h-8 w-8 place-items-center rounded-lg border border-dashed border-line bg-paper-soft text-ink-mute/60"
+                      >
+                        <FileText className="h-4 w-4" />
+                      </span>
+                    )}
+                    <button
+                      disabled={busy === i.uid || !i.completed}
+                      title={
+                        !i.completed
+                          ? "Mark intern complete first to issue LOR"
+                          : i.lorIssued
+                            ? "Revoke LOR"
+                            : "Issue Letter of Recommendation"
+                      }
+                      onClick={() =>
+                        void toggleLor(i.uid, !i.lorIssued, i.displayName, i.completed)
+                      }
+                      className="grid h-8 w-8 place-items-center rounded-lg border border-line bg-white hover:border-ink/40 disabled:opacity-40"
+                    >
+                      {i.lorIssued ? (
+                        <StarOff className="h-4 w-4 text-amber-600" />
+                      ) : (
+                        <Star className="h-4 w-4 text-amber-500" />
+                      )}
+                    </button>
+                    <button
+                      disabled={busy === i.uid}
+                      title={
+                        i.completed
+                          ? "Re-open internship (hides certificate)"
+                          : "Mark internship as completed (releases certificate)"
+                      }
+                      onClick={() =>
+                        void toggleCompleted(i.uid, !i.completed, i.displayName)
+                      }
+                      className="grid h-8 w-8 place-items-center rounded-lg border border-line bg-white hover:border-ink/40 disabled:opacity-50"
+                    >
+                      {i.completed ? (
+                        <RotateCcw className="h-4 w-4 text-amber-600" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      )}
+                    </button>
                     <button
                       disabled={busy === i.uid}
                       title="Reset password & email new credentials"
@@ -196,7 +357,9 @@ export default function InternsListPage() {
                       onClick={() => void toggleIntern(i.uid, !i.disabled)}
                       className="grid h-8 w-8 place-items-center rounded-lg border border-line bg-white hover:border-ink/40 disabled:opacity-50"
                     >
-                      <Power className={`h-4 w-4 ${i.disabled ? "text-emerald-600" : "text-red-500"}`} />
+                      <Power
+                        className={`h-4 w-4 ${i.disabled ? "text-emerald-600" : "text-red-500"}`}
+                      />
                     </button>
                   </div>
                 </li>

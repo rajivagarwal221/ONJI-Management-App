@@ -7,3 +7,4 @@ out/
 .env
 next-env.d.ts
 service-account*.json
+tsconfig.tsbuildinfo

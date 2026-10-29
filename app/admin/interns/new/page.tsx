@@ -13,6 +13,9 @@ export default function NewInternPage() {
     email: "",
     primaryTrack: "ml",
     cohort: new Date().toLocaleString("en-US", { month: "long", year: "numeric" }),
+    institute: "",
+    startDate: new Date().toISOString().slice(0, 10),
+    durationMonths: 4,
   });
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{
@@ -108,6 +111,46 @@ export default function NewInternPage() {
               onChange={(e) => setForm({ ...form, cohort: e.target.value })}
               className="h-10 rounded-xl border border-line bg-white px-3 text-sm outline-none focus:border-brand"
               placeholder="July 2026"
+            />
+          </label>
+
+          <label className="grid gap-1 md:col-span-2">
+            <span className="text-xs font-medium uppercase tracking-wide text-ink-mute">
+              Institute (shown on offer letter &amp; certificate)
+            </span>
+            <input
+              value={form.institute}
+              onChange={(e) => setForm({ ...form, institute: e.target.value })}
+              className="h-10 rounded-xl border border-line bg-white px-3 text-sm outline-none focus:border-brand"
+              placeholder="Lachoo Memorial College of Science and Technology, Jodhpur"
+            />
+          </label>
+
+          <label className="grid gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-ink-mute">
+              Start date
+            </span>
+            <input
+              type="date"
+              value={form.startDate}
+              onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+              className="h-10 rounded-xl border border-line bg-white px-3 text-sm outline-none focus:border-brand"
+            />
+          </label>
+
+          <label className="grid gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-ink-mute">
+              Duration (months)
+            </span>
+            <input
+              type="number"
+              min={1}
+              max={24}
+              value={form.durationMonths}
+              onChange={(e) =>
+                setForm({ ...form, durationMonths: Number(e.target.value) || 4 })
+              }
+              className="h-10 rounded-xl border border-line bg-white px-3 text-sm outline-none focus:border-brand"
             />
           </label>
 

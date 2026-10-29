@@ -2,37 +2,46 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { firebaseAuth, firebaseDb } from "@/lib/firebase";
 import { Banner, Button, Card, PageHeader } from "@/components/ui";
 import { Database, Users, UserPlus, LayoutDashboard } from "lucide-react";
 
 export default function AdminHome() {
-  const [stats, setStats] = useState({ total: 0, active: 0, disabled: 0 });
+  const [stats, setStats] = useState({
+    total: 0,
+    active: 0,
+    disabled: 0,
+    completed: 0,
+    lor: 0,
+  });
   const [seedBusy, setSeedBusy] = useState(false);
   const [seedMsg, setSeedMsg] = useState<string | null>(null);
   const [seedErr, setSeedErr] = useState<string | null>(null);
 
-  async function load() {
-    try {
-      const all = await getDocs(
-        query(collection(firebaseDb(), "users"), where("role", "==", "intern")),
-      );
-      let active = 0;
-      let disabled = 0;
-      all.forEach((d) => {
-        const data = d.data() as { disabled?: boolean };
-        if (data.disabled) disabled++;
-        else active++;
-      });
-      setStats({ total: all.size, active, disabled });
-    } catch {
-      /* silent */
-    }
-  }
-
   useEffect(() => {
-    void load();
+    const unsub = onSnapshot(
+      query(collection(firebaseDb(), "users"), where("role", "==", "intern")),
+      (all) => {
+        let active = 0;
+        let disabled = 0;
+        let completed = 0;
+        let lor = 0;
+        all.forEach((d) => {
+          const data = d.data() as {
+            disabled?: boolean;
+            completed?: boolean;
+            lorIssued?: boolean;
+          };
+          if (data.disabled) disabled++;
+          else active++;
+          if (data.completed) completed++;
+          if (data.lorIssued) lor++;
+        });
+        setStats({ total: all.size, active, disabled, completed, lor });
+      },
+    );
+    return () => unsub();
   }, []);
 
   async function seed() {
@@ -71,7 +80,7 @@ export default function AdminHome() {
         description="Manage interns, generate credentials, and seed program data."
       />
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card interactive>
           <div className="flex items-center gap-2 text-ink-mute">
             <Users className="h-4 w-4" />
@@ -89,6 +98,18 @@ export default function AdminHome() {
           <span className="eyebrow">Disabled</span>
           <div className="mt-3 font-display text-4xl font-semibold text-red-600">
             {stats.disabled}
+          </div>
+        </Card>
+        <Card interactive>
+          <span className="eyebrow">Completed</span>
+          <div className="mt-3 font-display text-4xl font-semibold text-brand">
+            {stats.completed}
+          </div>
+        </Card>
+        <Card interactive>
+          <span className="eyebrow">LOR issued</span>
+          <div className="mt-3 font-display text-4xl font-semibold text-amber-700">
+            {stats.lor}
           </div>
         </Card>
       </div>
