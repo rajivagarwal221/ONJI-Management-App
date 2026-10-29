@@ -38,7 +38,7 @@ tracks.
 ### 3. Gmail credentials for sending
 
 1. Turn on 2-Step Verification on the Google account that will send
-   credential emails (default: `onjisoftware@gmail.com`).
+   credential emails (default: `arajiv221@gmail.com`).
 2. Create an App Password at
    <https://myaccount.google.com/apppasswords>. Pick "Mail", "Other", name
    it "ONJI".

@@ -12,7 +12,7 @@ import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from "firebase/fires
 import type { UserProfile } from "./db";
 
 const ADMIN_EMAIL = (
-  process.env.NEXT_PUBLIC_ADMIN_EMAIL || "onjisoftware@gmail.com"
+  process.env.NEXT_PUBLIC_ADMIN_EMAIL || "arajiv221@gmail.com"
 ).toLowerCase();
 
 async function bootstrapAdminIfNeeded(u: User) {

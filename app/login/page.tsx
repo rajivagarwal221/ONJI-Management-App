@@ -18,7 +18,7 @@ function LoginInner() {
     const dest =
       (profile?.role === "admin" ||
         user.email?.toLowerCase() ===
-          (process.env.NEXT_PUBLIC_ADMIN_EMAIL || "onjisoftware@gmail.com").toLowerCase())
+          (process.env.NEXT_PUBLIC_ADMIN_EMAIL || "arajiv221@gmail.com").toLowerCase())
         ? "/admin"
         : "/intern";
     router.replace(dest);
@@ -105,9 +105,9 @@ function LoginInner() {
           team — reach out at{" "}
           <a
             className="font-medium text-brand hover:underline"
-            href="mailto:onjisoftware@gmail.com"
+            href="mailto:arajiv221@gmail.com"
           >
-            onjisoftware@gmail.com
+            arajiv221@gmail.com
           </a>
           .
         </div>

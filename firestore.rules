@@ -30,7 +30,7 @@ service cloud.firestore {
     // (and NEXT_PUBLIC_ADMIN_EMAIL in .env.local) to match your admin email.
     function isAdminEmail() {
       return signedIn() &&
-        request.auth.token.email == 'onjisoftware@gmail.com';
+        request.auth.token.email == 'arajiv221@gmail.com';
     }
 
     // User profile. Admin lists all; interns read themselves.
