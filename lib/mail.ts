@@ -38,6 +38,59 @@ export async function sendMail(opts: {
   return info.messageId;
 }
 
+export function reviewEmail(
+  name: string,
+  assignmentTitle: string,
+  status: "accepted" | "needs_revisions",
+  reviewerNote: string,
+  loginUrl: string,
+) {
+  const accepted = status === "accepted";
+  const title = accepted
+    ? "Your submission was accepted"
+    : "Reviewer requested revisions";
+
+  const text = `Hi ${name},
+
+Your submission for "${assignmentTitle}" was ${accepted ? "accepted" : "sent back for revisions"}.
+
+${reviewerNote ? `Reviewer note:\n${reviewerNote}\n\n` : ""}Open your portal to see details:
+${loginUrl}
+
+— The ONJI team`;
+
+  const noteBlock = reviewerNote
+    ? `<div style="margin-top:18px;padding:14px 16px;border:1px solid #E8DECF;border-radius:10px;background:#FBF7F0;font-size:14px;line-height:1.6;white-space:pre-wrap">${escapeHtml(reviewerNote)}</div>`
+    : "";
+
+  const html = `
+<div style="font-family:Inter,Arial,sans-serif;color:#2A1D13;background:#FBF7F0;padding:32px">
+  <table style="max-width:560px;margin:0 auto;background:#FFFFFF;border:1px solid #E8DECF;border-radius:14px;padding:28px">
+    <tr><td>
+      <div style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:${accepted ? "#047857" : "#A4521E"}">${title}</div>
+      <p style="margin-top:16px;font-size:15px;line-height:1.6">Hi ${name},</p>
+      <p style="font-size:15px;line-height:1.6">
+        Your submission for <b>${escapeHtml(assignmentTitle)}</b> was ${accepted ? "<span style=\"color:#047857;font-weight:600\">accepted</span>." : "<span style=\"color:#A4521E;font-weight:600\">sent back for revisions</span>."}
+      </p>
+      ${noteBlock}
+      <p style="margin-top:22px"><a href="${loginUrl}" style="display:inline-block;background:#B4601F;color:#FFFFFF;text-decoration:none;padding:10px 18px;border-radius:10px;font-weight:600">Open portal</a></p>
+      <p style="margin-top:24px;font-size:13px;color:#6B5947">— The ONJI team</p>
+    </td></tr>
+  </table>
+</div>`;
+
+  return { subject: title, text, html };
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export function credentialEmail(
   name: string,
   email: string,

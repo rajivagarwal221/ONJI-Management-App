@@ -1,10 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { collection, getDocs } from "firebase/firestore";
 import { Mail } from "lucide-react";
-import { firebaseAuth } from "@/lib/firebase";
+import { firebaseAuth, firebaseDb } from "@/lib/firebase";
 import { Card, PageHeader } from "@/components/ui";
+
+type GroupLite = { id: string; name: string };
 
 export default function NewInternPage() {
   const router = useRouter();
@@ -16,7 +19,26 @@ export default function NewInternPage() {
     institute: "",
     startDate: new Date().toISOString().slice(0, 10),
     durationMonths: 4,
+    groupId: "",
   });
+  const [groups, setGroups] = useState<GroupLite[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const snap = await getDocs(collection(firebaseDb(), "groups"));
+        setGroups(
+          snap.docs.map((d) => ({
+            id: d.id,
+            name: (d.data() as { name?: string }).name || d.id,
+          })),
+        );
+      } catch {
+        setGroups([]);
+      }
+    })();
+  }, []);
+
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{
     referenceNo: string;
@@ -152,6 +174,22 @@ export default function NewInternPage() {
               }
               className="h-10 rounded-xl border border-line bg-white px-3 text-sm outline-none focus:border-brand"
             />
+          </label>
+
+          <label className="grid gap-1 md:col-span-2">
+            <span className="text-xs font-medium uppercase tracking-wide text-ink-mute">
+              Group (optional)
+            </span>
+            <select
+              value={form.groupId}
+              onChange={(e) => setForm({ ...form, groupId: e.target.value })}
+              className="h-10 rounded-xl border border-line bg-white px-3 text-sm outline-none focus:border-brand"
+            >
+              <option value="">— No group —</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+            </select>
           </label>
 
           <div className="md:col-span-2 flex items-center justify-end gap-2 pt-2">

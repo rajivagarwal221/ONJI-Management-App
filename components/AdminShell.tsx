@@ -4,7 +4,11 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import {
+  Bell,
+  BookOpen,
   Briefcase,
+  CalendarDays,
+  ClipboardCheck,
   LayoutDashboard,
   LogOut,
   UserPlus,
@@ -24,6 +28,11 @@ const nav = [
   { href: "/admin/interns/new", label: "New intern", icon: UserPlus },
   { href: "/admin/groups", label: "Groups", icon: Users2 },
   { href: "/admin/submissions", label: "Submissions", icon: Briefcase },
+  { href: "/admin/tracks", label: "Tracks", icon: BookOpen },
+  { href: "/admin/assignments", label: "Assignments", icon: ClipboardCheck },
+  { href: "/admin/resources", label: "Resources", icon: BookOpen },
+  { href: "/admin/announcements", label: "Announcements", icon: Bell },
+  { href: "/admin/events", label: "Events", icon: CalendarDays },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {

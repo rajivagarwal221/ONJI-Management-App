@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
       institute,
       startDate,
       durationMonths,
+      groupId,
     } = body as {
       email: string;
       displayName: string;
@@ -28,6 +29,7 @@ export async function POST(req: NextRequest) {
       institute?: string;
       startDate?: string;
       durationMonths?: number;
+      groupId?: string;
     };
 
     if (!email || !displayName || !primaryTrack || !cohort) {
@@ -82,6 +84,7 @@ export async function POST(req: NextRequest) {
         tracks: [primaryTrack],
         cohort,
         referenceNo,
+        groupId: groupId || null,
         institute: institute || "",
         startDate: start,
         endDate,
