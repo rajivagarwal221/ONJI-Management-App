@@ -40,11 +40,21 @@ service cloud.firestore {
       // Admin can bootstrap their own doc with role=admin on first login.
       allow create: if isOwner(uid) && isAdminEmail() &&
                        request.resource.data.role == 'admin';
-      // Interns can only update a narrow set of fields (session + light profile).
+      // Interns can update their own profile fields + session marker.
+      // Role / referenceNo / tracks / cohort / disabled stay admin-only.
       allow update: if (isOwner(uid) &&
                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(
                          ['activeSessionId', 'lastSignIn',
-                          'country', 'timezone', 'linkedin', 'github']
+                          'displayName', 'secondaryEmail',
+                          'country', 'city', 'timezone', 'university',
+                          'linkedin', 'github', 'portfolio', 'behance',
+                          'dribbble', 'twitter', 'instagram', 'facebook',
+                          'youtube', 'tiktok', 'discord', 'reddit',
+                          'newsletter', 'otherLink',
+                          'oneLiner', 'hobbies', 'favoriteSport',
+                          'favoriteMoment', 'askMeAbout',
+                          'techStack', 'aiTools', 'buildingYears',
+                          'aspirations12m', 'cvFileName']
                        )) || isAdmin();
       allow delete: if false;
 
