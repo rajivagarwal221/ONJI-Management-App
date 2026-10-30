@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { LayoutDashboard, LogOut, UserPlus, Users } from "lucide-react";
+import {
+  Briefcase,
+  LayoutDashboard,
+  LogOut,
+  UserPlus,
+  Users,
+  Users2,
+} from "lucide-react";
 import { OnjiWordmark } from "./Logo";
 import { useAuth } from "@/lib/auth";
 
@@ -15,6 +22,8 @@ const nav = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/interns", label: "Interns", icon: Users },
   { href: "/admin/interns/new", label: "New intern", icon: UserPlus },
+  { href: "/admin/groups", label: "Groups", icon: Users2 },
+  { href: "/admin/submissions", label: "Submissions", icon: Briefcase },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {

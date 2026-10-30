@@ -24,6 +24,7 @@ import {
   LogOut,
   ChevronDown,
   FileText,
+  Target,
 } from "lucide-react";
 import { OnjiWordmark } from "./Logo";
 import { useAuth } from "@/lib/auth";
@@ -197,6 +198,7 @@ export function Sidebar() {
       items: [
         { href: "/intern/tracks", label: "Tracks", icon: BookOpen },
         { href: "/intern/assignments", label: "Assignments", icon: ClipboardCheck },
+        { href: "/intern/tasks", label: "Group tasks", icon: Target },
         { href: "/intern/schedule", label: "Schedule", icon: CalendarDays },
         { href: "/intern/events", label: "Events", icon: CalendarDays },
         { href: "/intern/completion", label: "Completion", icon: GraduationCap },

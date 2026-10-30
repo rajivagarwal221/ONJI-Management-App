@@ -24,6 +24,10 @@ service cloud.firestore {
     match /events/{doc}        { allow read: if signedIn(); allow write: if false; }
     match /courses/{doc}       { allow read: if signedIn(); allow write: if false; }
     match /counters/{doc}      { allow read: if false;      allow write: if false; }
+    // Groups and tasks are read by any signed-in intern (so they can see
+    // their own assignments); writes go through the admin SDK only.
+    match /groups/{doc}        { allow read: if signedIn(); allow write: if false; }
+    match /tasks/{doc}         { allow read: if signedIn(); allow write: if false; }
 
     // Admin bootstrap: the hardcoded admin email can create their own
     // user doc with role='admin' on first login. Change the string below
