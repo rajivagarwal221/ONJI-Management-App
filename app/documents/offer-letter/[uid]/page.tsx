@@ -80,7 +80,7 @@ export default function OfferLetterPage({ params }: { params: { uid: string } })
           <b>Subject: Internship Offer — Software Engineer Position</b>
         </div>
 
-        <p className="mt-4">Dear {intern.displayName.split(" ")[0]},</p>
+        <p className="mt-4">Dear {(intern.displayName || "there").split(" ")[0]},</p>
 
         <p className="mt-3">
           We are pleased to offer you the position of{" "}

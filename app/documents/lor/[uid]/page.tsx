@@ -56,7 +56,7 @@ export default function LorPage({ params }: { params: { uid: string } }) {
     );
   }
 
-  const first = intern.displayName.split(" ")[0];
+  const first = (intern.displayName || "the intern").split(" ")[0];
   const start = intern.startDate || todayIso();
   const end = intern.endDate || todayIso();
   const months = intern.durationMonths || monthsBetween(start, end) || 4;
