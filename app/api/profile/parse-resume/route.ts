@@ -24,15 +24,15 @@ export async function POST(req: NextRequest) {
     let text = "";
     const lower = name.toLowerCase();
     if (lower.endsWith(".pdf") || (file as File).type === "application/pdf") {
-      // pdf-parse v1's index tries to read a test PDF on module eval if
-      // require.main === module. In Next's server bundle require.main is
-      // undefined, so the plain default import works. The deep path
-      // 'pdf-parse/lib/pdf-parse.js' also works in dev but isn't in the
-      // v1 package exports map, so we use the top-level import.
-      const pdfParse = (await import("pdf-parse")).default as (
-        b: Buffer,
-      ) => Promise<{ text: string }>;
-      const parsed = await pdfParse(buf);
+      // pdf-parse v1's index.js runs debug code at module load when
+      // `!module.parent`, which is true inside Next's server bundle —
+      // that debug code opens ./test/data/05-versions-space.pdf and
+      // crashes with ENOENT. The deep path loads the real implementation
+      // and skips the broken index entirely.
+      const mod = (await import("pdf-parse/lib/pdf-parse.js")) as {
+        default: (b: Buffer) => Promise<{ text: string }>;
+      };
+      const parsed = await mod.default(buf);
       text = parsed.text || "";
     } else if (
       lower.endsWith(".docx") ||

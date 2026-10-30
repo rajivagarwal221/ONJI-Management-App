@@ -13,7 +13,7 @@ import {
 import { firebaseDb } from "@/lib/firebase";
 import { firebaseAuth } from "@/lib/firebase";
 import { Card, Chip, PageHeader } from "@/components/ui";
-import { Award, Download, FileText, KeyRound, Power, CheckCircle2, RotateCcw, Star, StarOff } from "lucide-react";
+import { Award, Download, FileText, KeyRound, Power, CheckCircle2, RotateCcw, Star, StarOff, Hash } from "lucide-react";
 import * as XLSX from "xlsx";
 
 type Intern = {
@@ -119,6 +119,38 @@ export default function InternsListPage() {
           : `Password reset, but email failed: ${data.emailError}. New password: ${data.password}`,
       );
       await load();
+    } catch (ex) {
+      setErr(ex instanceof Error ? ex.message : "Failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function migrateRefs() {
+    const legacyCount = interns.filter((i) =>
+      /^ONJI-/i.test(i.referenceNo || ""),
+    ).length;
+    if (legacyCount === 0) {
+      setMsg("All reference numbers are already in the new OS/HR/IOL/... format.");
+      return;
+    }
+    if (
+      !confirm(
+        `Rewrite ${legacyCount} legacy reference number${legacyCount === 1 ? "" : "s"} to OS/HR/IOL/YYYY/### format? This cannot be undone.`,
+      )
+    )
+      return;
+    setBusy("__migrate__");
+    setMsg(null);
+    setErr(null);
+    try {
+      const res = await fetch("/api/admin/migrate-refs", {
+        method: "POST",
+        headers: await tokenHeader(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+      setMsg(`Migrated ${data.migrated} reference number(s).`);
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : "Failed");
     } finally {
@@ -288,6 +320,16 @@ export default function InternsListPage() {
         description="Everyone the program has onboarded. Use the action icons on each row."
         action={
           <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={migrateRefs}
+              disabled={busy === "__migrate__" || interns.length === 0}
+              title="Rewrite legacy ONJI-YYYY-NNNN references to OS/HR/IOL/YYYY/### format"
+              className="inline-flex h-9 items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3.5 text-sm font-medium text-amber-900 hover:border-amber-500 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Hash className="h-4 w-4" />
+              {busy === "__migrate__" ? "Migrating…" : "Migrate ref numbers"}
+            </button>
             <button
               type="button"
               onClick={exportToExcel}
