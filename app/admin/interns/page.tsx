@@ -13,7 +13,8 @@ import {
 import { firebaseDb } from "@/lib/firebase";
 import { firebaseAuth } from "@/lib/firebase";
 import { Card, Chip, PageHeader } from "@/components/ui";
-import { Award, FileText, KeyRound, Power, CheckCircle2, RotateCcw, Star, StarOff } from "lucide-react";
+import { Award, Download, FileText, KeyRound, Power, CheckCircle2, RotateCcw, Star, StarOff } from "lucide-react";
+import * as XLSX from "xlsx";
 
 type Intern = {
   uid: string;
@@ -26,6 +27,31 @@ type Intern = {
   activeSessionId?: string | null;
   completed?: boolean;
   lorIssued?: boolean;
+  // Extended profile fields exported to Excel. Optional on every row.
+  secondaryEmail?: string;
+  country?: string;
+  city?: string;
+  timezone?: string;
+  university?: string;
+  linkedin?: string;
+  github?: string;
+  portfolio?: string;
+  twitter?: string;
+  instagram?: string;
+  behance?: string;
+  dribbble?: string;
+  youtube?: string;
+  tiktok?: string;
+  oneLiner?: string;
+  hobbies?: string;
+  askMeAbout?: string;
+  techStack?: string[];
+  aiTools?: string[];
+  buildingYears?: string;
+  aspirations12m?: string;
+  groupId?: string | null;
+  provisionedAt?: { toDate?: () => Date };
+  lastSignIn?: { toDate?: () => Date };
 };
 
 export default function InternsListPage() {
@@ -170,6 +196,71 @@ export default function InternsListPage() {
     }
   }
 
+  function toDate(v: Intern["provisionedAt"]): string {
+    try {
+      const d = v?.toDate?.();
+      return d ? d.toISOString() : "";
+    } catch {
+      return "";
+    }
+  }
+
+  function exportToExcel() {
+    const rows = interns.map((i) => ({
+      "Reference No.": i.referenceNo || "",
+      "Full Name": i.displayName || "",
+      "Email": i.email || "",
+      "Secondary Email": i.secondaryEmail || "",
+      "Primary Track": i.primaryTrack || "",
+      "Cohort": i.cohort || "",
+      "Country": i.country || "",
+      "City": i.city || "",
+      "Timezone": i.timezone || "",
+      "University": i.university || "",
+      "LinkedIn": i.linkedin || "",
+      "GitHub": i.github || "",
+      "Portfolio": i.portfolio || "",
+      "X / Twitter": i.twitter || "",
+      "Instagram": i.instagram || "",
+      "Behance": i.behance || "",
+      "Dribbble": i.dribbble || "",
+      "YouTube": i.youtube || "",
+      "TikTok": i.tiktok || "",
+      "One-liner": i.oneLiner || "",
+      "Hobbies": i.hobbies || "",
+      "Ask me about": i.askMeAbout || "",
+      "Tech stack": (i.techStack || []).join(", "),
+      "AI tools": (i.aiTools || []).join(", "),
+      "Building years": i.buildingYears || "",
+      "12-month aspirations": i.aspirations12m || "",
+      "Group ID": i.groupId || "",
+      "Status":
+        i.disabled
+          ? "Disabled"
+          : i.completed
+            ? i.lorIssued
+              ? "Completed · LOR issued"
+              : "Completed"
+            : "Active",
+      "Last sign-in": toDate(i.lastSignIn),
+      "Provisioned at": toDate(i.provisionedAt),
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    // Auto-size columns to the max of header + any cell length (capped).
+    const headers = Object.keys(rows[0] || {});
+    ws["!cols"] = headers.map((h) => {
+      const maxLen = Math.max(
+        h.length,
+        ...rows.map((r) => String(r[h as keyof typeof r] ?? "").length),
+      );
+      return { wch: Math.min(60, Math.max(12, maxLen + 2)) };
+    });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Interns");
+    const stamp = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `onji-interns-${stamp}.xlsx`);
+  }
+
   async function toggleIntern(uid: string, disabled: boolean) {
     if (!confirm(disabled ? "Disable this intern?" : "Re-enable this intern?")) return;
     setBusy(uid);
@@ -196,12 +287,28 @@ export default function InternsListPage() {
         title="All interns"
         description="Everyone the program has onboarded. Use the action icons on each row."
         action={
-          <Link
-            href="/admin/interns/new"
-            className="h-9 rounded-xl bg-brand-bright px-4 text-sm font-medium text-brand-fg shadow-brand hover:bg-brand-hover grid place-items-center"
-          >
-            Provision new intern
-          </Link>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={exportToExcel}
+              disabled={interns.length === 0}
+              title={
+                interns.length === 0
+                  ? "No interns to export"
+                  : "Download .xlsx with all intern details"
+              }
+              className="inline-flex h-9 items-center gap-2 rounded-xl border border-ink/20 bg-white px-3.5 text-sm font-medium text-ink hover:border-ink/40 hover:bg-paper-soft disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Download className="h-4 w-4" />
+              Export to Excel
+            </button>
+            <Link
+              href="/admin/interns/new"
+              className="h-9 rounded-xl bg-brand-bright px-4 text-sm font-medium text-brand-fg shadow-brand hover:bg-brand-hover grid place-items-center"
+            >
+              Provision new intern
+            </Link>
+          </div>
         }
       />
 

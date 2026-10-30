@@ -1,12 +1,12 @@
-// Reference-number generator. Swap FORMAT when the real format arrives.
-// Current placeholder: ONJI-{YYYY}-{seq4}. Admin SDK uses a transactional
-// counter so sequence numbers are unique even across concurrent provisioning.
+// Reference-number generator.
+// Format: OS/HR/IOL/{YYYY}/{seq3} e.g. OS/HR/IOL/2026/001
+// A single counter per year lives at counters/interns-{YYYY}; sequences
+// are allocated transactionally so parallel provisioning stays unique.
 import "server-only";
 import { adminDb } from "./firebase-admin";
 
-// TODO: replace with the real format once provided (will include letters).
 export function formatReference(year: number, seq: number) {
-  return `ONJI-${year}-${String(seq).padStart(4, "0")}`;
+  return `OS/HR/IOL/${year}/${String(seq).padStart(3, "0")}`;
 }
 
 export async function nextReference(): Promise<string> {

@@ -37,17 +37,28 @@ export function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Reference numbers now live in canonical OS/HR/IOL/{YYYY}/{seq} form
+// (see lib/refs.ts). Offer letters use it as-is; certificate / LOR
+// swap the document-type segment. Legacy refs (ONJI-YYYY-NNNN from
+// older interns) fall back to the historical prefixed form.
 export function offerRef(referenceNo?: string): string {
-  // Internal reference prefix for offer letters.
-  return referenceNo ? `OS/HR/IOL/${referenceNo}` : "OS/HR/IOL/—";
+  if (!referenceNo) return "OS/HR/IOL/—";
+  if (referenceNo.startsWith("OS/HR/")) return referenceNo;
+  return `OS/HR/IOL/${referenceNo}`;
 }
 
 export function certRef(referenceNo?: string): string {
-  return referenceNo ? `OS/HR/ICL/${referenceNo}` : "OS/HR/ICL/—";
+  if (!referenceNo) return "OS/HR/ICL/—";
+  if (referenceNo.startsWith("OS/HR/"))
+    return referenceNo.replace(/^OS\/HR\/[A-Z]+\//, "OS/HR/ICL/");
+  return `OS/HR/ICL/${referenceNo}`;
 }
 
 export function lorRef(referenceNo?: string): string {
-  return referenceNo ? `OS/HR/LOR/${referenceNo}` : "OS/HR/LOR/—";
+  if (!referenceNo) return "OS/HR/LOR/—";
+  if (referenceNo.startsWith("OS/HR/"))
+    return referenceNo.replace(/^OS\/HR\/[A-Z]+\//, "OS/HR/LOR/");
+  return `OS/HR/LOR/${referenceNo}`;
 }
 
 export function monthsBetween(startIso?: string, endIso?: string): number {
